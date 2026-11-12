@@ -46,7 +46,12 @@ Windows cannot use. In setup, ticking a driver is your consent for Setup to fetc
 
 The Linux and macOS packages contain **RegCapture.Service**: the same local API, browser page (`http://127.0.0.1:12345/ui`), fingerprint matching
 against your stored templates (`match`, and `validate` with `candidates`) and relay agent as on Windows, running as a background service.
-**Scanning with a reader is not available yet**, because RegCapture has no reader drivers for these systems: the Reader list says so.
+**Readers:** SecuGen, ZKTeco and Futronic USB readers work on 64-bit (x86-64) Linux, and Futronic on Intel Macs (the libraries are in the packages;
+on Debian/Ubuntu the packages also recommend `libusb-0.1-4 libusb-1.0-0 libjpeg-turbo8`, and the `.deb` installs a USB permission rule: unplug and
+replug the reader once). Other readers and other CPUs (arm64) have no drivers there yet. `RegCapture.Service readers` shows what is found or missing.
+There is no desktop window on these systems, so the browser page (`regcapture://web`, or `http://127.0.0.1:12345/ui`) has a **Lite | Full** switch:
+Full adds the readers and drivers list (with install buttons), stored fingerprints, website access (the address, the key, and allowing or removing
+websites) and About. It starts in Full the first time on Linux and macOS.
 
 | System | Install |
 |---|---|
@@ -70,6 +75,11 @@ A background service has no window to ask permission, so tell it which websites 
 | Fix a mistake | **Clear finger** / **Clear all**. **Cancel** stops a scan in progress. |
 | Save results | **Export...** writes images, templates and a manifest to a folder. |
 
+The **preview** belongs to the selected finger: after a capture it stays on screen, choosing another finger clears it, and choosing a captured finger
+shows its own scan. A reader that is not ready is marked **(needs setup)**; choose it to see what is missing and the buttons that download and install its
+driver or SDK (readers that cannot be fixed from here stay greyed out). **About** (in the header) shows the version, where to get a newer one, the
+company (efacilities) and the contact.
+
 The same scan engine serves the window and the website, so only one scan runs at a time. A second request is told "busy".
 
 If a website is waiting for a fingerprint, a blue banner says so; the next successful capture in the window is sent to it.
@@ -80,7 +90,7 @@ If a website is waiting for a fingerprint, a blue banner says so; the next succe
 |---|---|
 | `regcapture://start` | Starts the app **minimised**, no window pops up. Use this from websites. |
 | `regcapture://open` | Shows the **desktop window**. |
-| `regcapture://web` | Shows a small **browser popup page** (served by the app at `http://127.0.0.1:12345/ui`) with the same hand picker. |
+| `regcapture://web` | Shows a small **browser popup page** (served by the app at `http://127.0.0.1:12345/ui`) laid out like the desktop window, **without** opening the desktop window. A **Lite | Full** switch in its header adds readers and drivers, stored fingerprints, website access and About. |
 | `regcapture://drivers` | Shows the desktop window with the **Reader drivers** page open (the Start menu shortcut uses it). |
 
 Your website normally never needs these: the SDK starts the app with `start` if it is not running.
