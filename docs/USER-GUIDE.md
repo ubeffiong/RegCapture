@@ -300,6 +300,58 @@ Reply: `matched` (true/false), `score` (the best score), `matchedId` (the winnin
 template captured on one brand can be matched against a scan from another. Readers that return no image (template-only readers) cannot
 be used for this.
 
+### 5.7 A big list (thousands to millions): let the app keep it
+
+Sending the list with every request is fine up to 500, but it does not scale: the app would compare the scan with each one. For a larger
+list, store the fingerprints **once** in the app and search them. The app keeps them in a file on that PC, builds an index, and a search
+narrows the scan to a short list (64) which it then compares properly, so the time does not climb with the size of the list.
+
+```js
+await fp.galleryAdd(batch);              // [{ id, matchTemplate }, ...] up to 500 per call; repeat for more. Same id = replace.
+const r = await fp.identify();           // scan a finger and search everything stored
+if (r.matched) login(r.matchedId);       // r.score, r.examined (how many were fully compared), r.count (how many stored)
+const s = await fp.search({ matchTemplate });   // same search with a fingerprint you already have, no scan
+await fp.galleryRemove('user-42'); await fp.galleryCount(); await fp.galleryClear();
+```
+
+| `action` | Fields | Reply |
+|---|---|---|
+| `galleryAdd` | `candidates` (up to 500) | `count`, `capacity` (all or nothing) |
+| `galleryRemove` | `id` | `count` (the person is erased from the file) |
+| `galleryCount` / `galleryClear` / `galleryPurge` | none | `count`, `capacity` |
+| `identify` | optional `threshold`, `device`, `exact` | `matched`, `matchedId`, `score`, `examined`, `count`, plus the scan like `validate` |
+| `search` | `probe`, optional `threshold`, `exact` | `matched`, `matchedId`, `score`, `examined`, `count` |
+
+Errors: **409 `gallery_full`** (the whole batch is refused and *nothing* is stored; the reply carries `count` and `capacity` so you can
+store fewer, or remove people first), 400 `gallery_error` (an id is empty or over 128 characters, the template is not usable, or an `exact`
+search on a gallery over 20,000), or `unsupported`. A batch is **all or nothing**: replacing a person who is already stored never needs
+extra room, and nothing already stored is ever dropped to make room.
+
+What to know:
+
+* **Is it O(1)?** The work per search is bounded: a fixed number of index lookups and at most 64 full comparisons, whatever the size.
+  Measured on synthetic data at 1,000,000 fingerprints it took about 10 ms (about 0.15 ms at 10,000); comparing with everything would be
+  about a minute. It is close to constant, not exactly constant: lookups touch more memory as the index grows. A fingerprint cannot be
+  found by an exact-match key (two scans of one finger are never identical), so the index finds a short list of likely matches and the
+  real matcher decides. An approximate short list can miss the right person: on the synthetic test data it found 100% of the re-scans
+  up to a million, but real fingerprints are not random, so measure it on your own data. `exact: true` compares with everything
+  (galleries up to 20,000 only) so you can check.
+* **How many can it hold?** `capacity` in every reply says. The desktop app is a 32-bit program (the reader vendors' SDKs are), which could
+  hold only about 150,000, so **on 64-bit Windows it keeps the gallery in its 64-bit helper automatically** (room for 5,000,000; nothing to
+  install or choose). Only on a 32-bit Windows, or if the helper cannot start, is the 150,000 limit used. The Linux/macOS service is 64-bit.
+  Memory is about 1.2 GB per million fingerprints, and the index takes about 30 seconds per million to rebuild when the app starts.
+* **Privacy: it holds personal data.** In the app, **Stored fingerprints** shows how many are stored and erases them all.
+  * The file is encrypted (AES-256-GCM per record; ids too). The key is bound to the Windows user with DPAPI, so the file cannot be read by
+    another user or after being copied to another PC. On Linux/macOS the key sits in a file only the owner can read, which is weaker.
+  * The file is kept in a folder only that user can open: `%LocalAppData%\RegCapture\gallery\gallery.dat` (Linux/macOS:
+    `~/.local/share/RegCapture/gallery/gallery.dat`).
+  * **Removal is erasure.** `galleryRemove` rewrites the file without that person under a fresh key and wipes the old key, so the
+    removed record cannot be recovered from the old file (galleries up to 100,000 at once; larger ones when a tenth has been removed, or on
+    `galleryPurge`). `galleryClear` leaves an empty file. A damaged or altered record is detected and dropped, never trusted.
+  * Only websites the person approved can use any of this, the same as for capturing. Tell people their fingerprints are stored and why, and
+    remove them when they ask or leave.
+* This is a convenience for one PC. A website with a central user database should still keep its own copy of its fingerprints.
+
 ## 6. Making it work in production (not just on `localhost`)
 
 Browsers treat a call from a public website to software on the visitor's PC differently from a developer's `localhost:3000`.

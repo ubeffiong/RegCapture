@@ -11,7 +11,7 @@ This repository publishes the **releases** and the **guides**. It does not conta
 
 ## Download
 
-Get the latest version from **[Releases](../../releases/latest)**:
+Register once on the **[download page](https://regcapture-downloads.regcapture.workers.dev/)** and a personal download link is emailed to you (valid for 48 hours; it asks only for your name and email). The release notes and checksums are on **[Releases](../../releases/latest)**; the files themselves are on the download page:
 
 | File | What it is |
 |---|---|
@@ -80,6 +80,8 @@ browser popup), `regcapture://drivers` (reader drivers page).
 * No screen of your own? `fp.captureWithUi('RightIndex')` shows RegCapture's screen and returns the result.
 * No matching of your own? `fp.validateAgainst(storedList)` scans a finger and checks it against your stored fingerprints (1:1 or 1:N, up to
   500). `fp.match(probe, storedList)` does the same without scanning.
+* Thousands or millions of people? `fp.galleryAdd(batch)` stores fingerprints once in the app, and `fp.identify()` scans a finger and
+  searches them all in about 10 ms (indexed; the right person is found from a short list of 64). See the user guide, section 5.7.
 * Drop-in element: `<fingerprint-capture finger="RightIndex" name="template"></fingerprint-capture>` fills a hidden form field.
 
 ## Guides
