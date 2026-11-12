@@ -23,6 +23,18 @@ reader with a Windows Biometric Framework driver. Which ones work on a given PC 
 
 The app registers the `regcapture://` link for the current Windows user so websites can start it.
 
+**Which readers appear in the list?** Only readers whose software works. When RegCapture starts it loads each reader's SDK and checks that it
+answers (no reader needs to be plugged in for this). A brand whose SDK is missing or fails is greyed out with the reason, for example "The ZKTeco
+SDK could not start (error -1). Install the ZKTeco driver from the Drivers page."
+
+**More scanner brands:** open **Drivers** and choose **Neurotechnology scanner support** > *Download and install*. It downloads the free
+Neurotechnology SDK (about 350 MB, checked against a known checksum, installed for your Windows user with no administrator rights) and adds
+DERMALOG, Aratek, Mantra, Startek, Tatvik, Integrated Biometrics, CrossMatch, Jenetric, Biometrika, GreenBit, HF Security, id3, IMD and
+NextBiometrics.
+
+**Network readers (access-control terminals):** open **Network readers**, enter the terminal's address, port, user name and password. The
+**Hikvision terminal** then appears in the Reader list. (The Hikvision network SDK is included with the app.)
+
 **Skipped a driver, or got a new reader later?** Open **Drivers** (top right of the app window, or Start menu > *RegCapture - Reader
 drivers*). Each supported brand has **Download and install**: after you confirm, the app uses the driver shipped with it, or looks for
 the driver on Windows Update (Microsoft-signed, and only for that brand's hardware ID), and installs it. Windows asks for administrator
@@ -30,10 +42,27 @@ permission once. If nothing is found automatically, **Browse for file...** insta
 opens the manufacturer's download page. A banner with the same *Download and install* button also appears when the app sees a reader that
 Windows cannot use. In setup, ticking a driver is your consent for Setup to fetch it the same way if it is not already inside the installer.
 
+## 2b. Linux and macOS (preview)
+
+The Linux and macOS packages contain **RegCapture.Service**: the same local API, browser page (`http://127.0.0.1:12345/ui`), fingerprint matching
+against your stored templates (`match`, and `validate` with `candidates`) and relay agent as on Windows, running as a background service.
+**Scanning with a reader is not available yet**, because RegCapture has no reader drivers for these systems: the Reader list says so.
+
+| System | Install |
+|---|---|
+| Ubuntu / Debian | `sudo apt install ./regcapture_<version>_amd64.deb` (use `arm64` on ARM). Log out and in, or run `systemctl --user start regcapture`. |
+| Other Linux | Unpack the `.tar.gz`, run `./install.sh` (no root; needs systemd for the automatic start), remove with `./uninstall.sh`. |
+| macOS | Open the `.pkg` (right-click > Open the first time: it is not signed or notarized yet). It starts the service at login and registers the `regcapture://` link. |
+
+A background service has no window to ask permission, so tell it which websites may use it:
+`regcapture approve https://your-site.example` (macOS: `/usr/local/regcapture/RegCapture.Service approve ...`), then restart it
+(`systemctl --user restart regcapture`). Settings file: `RegCapture.Service config` prints its path.
+
 ## 3. Using the app window
 
 | Do this | How |
 |---|---|
+| Choose your scanner once | In the **Reader** list pick your scanner and tick **Default**. RegCapture then selects it by itself every time it starts, so you never have to choose it before scanning. With no default it uses the one you used last, or the only known reader that is plugged in. |
 | Pick a finger | Click it on the hands, or use the **Finger** drop-down. Both stay in sync. Green ✓ = already captured. |
 | Capture | Mode **Capture**, then **Capture**. Place the finger on the reader when prompted. |
 | Capture every finger | **Capture all** goes through the fingers not yet captured. |

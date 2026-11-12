@@ -17,6 +17,9 @@ Get the latest version from **[Releases](../../releases/latest)**:
 |---|---|
 | `RegCaptureSetup.exe` | One-file setup. Recommended for most people. |
 | `RegCaptureSetup.msi` | Windows Installer package for Intune, group policy and silent installs. |
+| `regcapture_<version>_amd64.deb`, `regcapture_<version>_arm64.deb` | Ubuntu / Debian package (Linux, preview: see *Linux and macOS* below). |
+| `RegCapture-<version>-linux-x64.tar.gz`, `-linux-arm64.tar.gz` | Any Linux distribution with systemd; installs for your user, no root (`./install.sh`). |
+| `RegCapture-<version>-macos-arm64.pkg`, `-macos-x64.pkg` | macOS installer (Apple Silicon / Intel). |
 | `regcapture-web-sdk-<version>.zip` | The JavaScript SDK for websites (script, ES module, `<fingerprint-capture>` element, TypeScript types, demo page). |
 | `RegCapture-Relay-win-x64.zip` | The optional relay server, for remote-desktop / Citrix / cloud setups. |
 | `RegCapture-AdminTools.zip` | Administrator scripts (browser policy for the local app, certificate removal). |
@@ -35,6 +38,22 @@ Each release is a version tag (`v1.0.1`, ...). Check a download with `Get-FileHa
 
 Supported readers: SecuGen, ZKTeco, Suprema, Futronic, DigitalPersona, Lumidigm, Morpho, Nitgen, DERMALOG, Hikvision, and any reader with a
 Windows Biometric Framework driver. The installers include drivers for SecuGen, ZKTeco and Suprema; the **Drivers** page gets the others.
+
+## Linux and macOS (preview)
+
+The Linux and macOS packages contain **RegCapture.Service**: the same local API, browser page (`http://127.0.0.1:12345/ui`), fingerprint matching
+against your stored templates (`match`, and `validate` with `candidates`) and relay agent as on Windows, running as a background service.
+**Scanning with a reader is not available yet**, because RegCapture has no reader drivers for these systems: the Reader list says so.
+
+| System | Install |
+|---|---|
+| Ubuntu / Debian | `sudo apt install ./regcapture_<version>_amd64.deb` (use `arm64` on ARM). Log out and in, or run `systemctl --user start regcapture`. |
+| Other Linux | Unpack the `.tar.gz`, run `./install.sh` (no root; needs systemd for the automatic start), remove with `./uninstall.sh`. |
+| macOS | Open the `.pkg` (right-click > Open the first time: it is not signed or notarized yet). It starts the service at login and registers the `regcapture://` link. |
+
+A background service has no window to ask permission, so tell it which websites may use it:
+`regcapture approve https://your-site.example` (macOS: `/usr/local/regcapture/RegCapture.Service approve ...`), then restart it
+(`systemctl --user restart regcapture`). Settings file: `RegCapture.Service config` prints its path.
 
 ## Use the app
 
