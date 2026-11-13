@@ -11,7 +11,7 @@ scan. Your website keeps its own screens; it only calls the app when it needs a 
 Website in the browser  --(http(s) to 127.0.0.1:12345)-->  RegCapture app  -->  reader
 ```
 
-Works with most USB readers: DigitalPersona, SecuGen, ZKTeco, Futronic, Suprema, Lumidigm, Hikvision, Morpho, Nitgen, and any
+Works with most USB readers: DigitalPersona, SecuGen, ZKTeco, Futronic, Suprema, Lumidigm, Hikvision, Morpho, Nitgen, Integrated Biometrics, and any
 reader with a Windows Biometric Framework driver. Which ones work on a given PC depends on its driver being installed.
 
 ## 2. Install (each PC that has a reader)
@@ -31,6 +31,9 @@ SDK could not start (error -1). Install the ZKTeco driver from the Drivers page.
 Neurotechnology SDK (about 350 MB, checked against a known checksum, installed for your Windows user with no administrator rights) and adds
 DERMALOG, Aratek, Mantra, Startek, Tatvik, Integrated Biometrics, CrossMatch, Jenetric, Biometrika, GreenBit, HF Security, id3, IMD and
 NextBiometrics.
+Without internet (or to avoid a 350 MB download on every PC): download **RegCapture-ScannerSupport.zip** once from the RegCapture download page,
+copy it to the PC, and in the same place choose **No** when asked to download, then select that file (or use **Install from a file...** next to a
+reader that needs setup). RegCapture checks it against the same checksum and installs it for your Windows user. The full list of scanners it covers is in `docs/READERS.md`.
 
 **Network readers (access-control terminals):** open **Network readers**, enter the terminal's address, port, user name and password. The
 **Hikvision terminal** then appears in the Reader list. (The Hikvision network SDK is included with the app.)
@@ -48,9 +51,13 @@ The Linux and macOS packages contain **RegCapture.Service**: the same local API,
 against your stored templates (`match`, and `validate` with `candidates`) and relay agent as on Windows, running as a background service.
 **Readers:** SecuGen, ZKTeco and Futronic USB readers work on 64-bit (x86-64) Linux, and Futronic on Intel Macs (the libraries are in the packages;
 on Debian/Ubuntu the packages also recommend `libusb-0.1-4 libusb-1.0-0 libjpeg-turbo8`, and the `.deb` installs a USB permission rule: unplug and
-replug the reader once). Other readers and other CPUs (arm64) have no drivers there yet. `RegCapture.Service readers` shows what is found or missing.
+replug the reader once). On **every Linux** (x86-64 and ARM) the **libfprint (Linux fingerprint readers)** reader uses the open-source libfprint library most distributions
+already have (`sudo apt install libfprint-2-2`): a laptop's built-in reader and many USB readers, as long as the reader is on
+[libfprint's supported list](https://fprint.freedesktop.org/supported-devices.html) and gives out raw images (a reader that only supports libfprint's own
+enrol and verify is listed with a message saying so). A scan libfprint cannot find fingerprint features in is refused with "try again". `RegCapture.Service readers`
+shows what is found or missing; see `docs/LIBFPRINT.md`.
 There is no desktop window on these systems, so the browser page (`regcapture://web`, or `http://127.0.0.1:12345/ui`) has a **Lite | Full** switch:
-Full adds the readers and drivers list (with install buttons), stored fingerprints, website access (the address, the key, and allowing or removing
+Full adds the readers and drivers list (with install buttons), stored fingerprints, website access (allowing or removing
 websites) and About. It starts in Full the first time on Linux and macOS.
 
 | System | Install |
@@ -80,6 +87,11 @@ shows its own scan. A reader that is not ready is marked **(needs setup)**; choo
 driver or SDK (readers that cannot be fixed from here stay greyed out). **About** (in the header) shows the version, where to get a newer one, the
 company (efacilities) and the contact.
 
+**Slap scanners (4-4-2):** a reader that can scan several fingers at once (Integrated Biometrics Kojak and similar, with its SDK
+installed) shows a **One finger | Slap** switch. In **Slap** mode choosing a finger selects its hand (or both thumbs), and one press of
+**Capture** stores all four fingers (or both thumbs); the preview shows the whole scan. If a finger is missing nothing is stored and you are
+asked to try again. Details: `docs/SLAP-CAPTURE.md`.
+
 The same scan engine serves the window and the website, so only one scan runs at a time. A second request is told "busy".
 
 If a website is waiting for a fingerprint, a blue banner says so; the next successful capture in the window is sent to it.
@@ -94,6 +106,59 @@ If a website is waiting for a fingerprint, a blue banner says so; the next succe
 | `regcapture://drivers` | Shows the desktop window with the **Reader drivers** page open (the Start menu shortcut uses it). |
 
 Your website normally never needs these: the SDK starts the app with `start` if it is not running.
+
+### 4.1 How the answer gets back to your page
+
+Launching and data are two separate paths. The `regcapture://` link only starts or shows the app; **nothing is ever returned through it.**
+
+* **Launching, via `regcapture://`:** the browser hands the link to Windows (or macOS), which runs the app. Nothing comes back to the page.
+* **Data, via HTTP:** your page calls the app's local address, `http://127.0.0.1:12345/api/fingerprint/` (or https if you turned it on), with
+  `fetch`. A `capture`, `captureSlap` or `validate` call stays open until the scan finishes, and the JSON reply comes back **on that same request**.
+* **App not running:** the SDK's `connect()` first launches it through `regcapture://start`, then polls the HTTP address until the app answers.
+* **Capture made in the app's own window or popup page:** your page calls `receive`, a request that waits (up to 90 seconds by default). When
+  someone captures in the app, the result is returned on that waiting request. Nothing is pushed to a page that is not waiting.
+
+**API reference you can try:** with the app running, open `http://127.0.0.1:12345/api-docs` (the app has an **Open the API reference** button
+under *Website access and local API*, and the browser page has a link). It shows **your API address and key** (key hidden until you press Show) and lists every action with an example request
+and the usual reply, and each has a **Send** button that calls the app and shows the real reply (a capture really scans). The same description
+is the OpenAPI file `docs/openapi.json` (also served at `/api-docs/openapi.json`) for Postman, code generators and similar tools. A test
+sends the examples to the real API, so the reference matches what the app does.
+
+**Validate (verify) call and response** (plain HTTP; `fp.verify()` and `fp.validateAgainst()` send the same body):
+
+```http
+POST http://127.0.0.1:12345/api/fingerprint/
+Content-Type: application/json
+
+{ "action": "validate", "finger": "RightIndex" }
+```
+
+```json
+{
+  "status": "success", "code": "ok", "action": "validate",
+  "message": "Match: RightIndex (score 183)",
+  "matched": true, "score": 183, "matchedFinger": "RightIndex",
+  "template": "<base64 of the probe scan>", "matchTemplate": "<base64>", "width": 256, "height": 360, "dpi": 500
+}
+```
+
+Against your own stored fingerprints, send them as `candidates` (see 5.6); the reply names the one that matched:
+
+```json
+{ "action": "validate", "threshold": 40,
+  "candidates": [ { "id": "patient-3-right-index", "matchTemplate": "<stored>" },
+                  { "id": "patient-9-right-index", "matchTemplate": "<stored>" } ] }
+```
+
+```json
+{ "status": "success", "code": "ok", "action": "validate",
+  "message": "Match: patient-9-right-index (score 183)",
+  "matched": true, "score": 183, "matchedId": "patient-9-right-index", "template": "<base64>", "matchTemplate": "<base64>" }
+```
+
+A non-match is not an error: `"matched": false`, no `matchedFinger` / `matchedId`, and `message` says "No match (best score 12)". Always test
+`matched`, not just `status`. Errors use `"status": "error"` with a `code` such as `busy`, `timeout`, `no_device` or `invalid_request` (for example
+verifying when nothing has been captured yet).
 
 ## 5. Adding it to your web app
 
@@ -162,6 +227,7 @@ Fields that do not apply are **left out** of the JSON (never `null`). Field name
 | Action | Request body | Notes |
 |---|---|---|
 | Capture | `{ "action": "capture", "finger": "RightIndex" }` | `finger` required. Optional `"device": "SecuGen"` selects a reader. |
+| Capture a group (slap reader) | `{ "action": "capture", "group": "RightFour" }` | `RightFour`, `LeftFour` or `TwoThumbs`: four fingers of a hand, or both thumbs, in one placement. Returns `fingers` (each with its image and `matchTemplate`) and the platen `overview`. See `docs/SLAP-CAPTURE.md`. |
 | Verify | `{ "action": "validate" }` or `{ "action": "validate", "finger": "RightIndex" }` | With `finger`: 1:1 against that finger. Without: 1:N against all captured fingers. (`"verify"` is accepted as an alias.) |
 | Receive | `{ "action": "receive", "finger": "RightIndex", "timeoutSeconds": 90 }` | Waits for a capture made in the app's own UI. `finger` optional (pre-selects it in the UI); `timeoutSeconds` 5 to 120, default 90. |
 | Cancel | `{ "action": "cancel" }` | Stops the running scan. |

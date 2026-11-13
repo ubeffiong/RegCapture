@@ -65,7 +65,8 @@ A background service has no window to ask permission, so tell it which websites 
 | Save | **Export...** writes images, templates and a manifest to a folder. |
 
 A website can start the app with these links: `regcapture://start` (minimised), `regcapture://open` (window), `regcapture://web` (small
-browser popup), `regcapture://drivers` (reader drivers page).
+browser popup), `regcapture://drivers` (reader drivers page). These links only start or show the app; the scan result comes back to your page
+over HTTP on the same request that asked for it. See the user guide, section 4.1.
 
 ## Add it to your website (short version)
 
